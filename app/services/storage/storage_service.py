@@ -18,10 +18,10 @@ class StorageService(BaseService):
         self.supabase = None
         self.bucket_name = settings.SUPABASE_BUCKET
         
-        if settings.SUPABASE_URL and settings.SUPABASE_SERVICE_KEY:
+        if settings.SUPABASE_URL:
             try:
                 from supabase import create_client
-                self.supabase = create_client(settings.SUPABASE_URL, settings.SUPABASE_SERVICE_KEY)
+                self.supabase = create_client(settings.SUPABASE_URL, settings.SUPABASE_KEY)
                 logger.info("Supabase 스토리지 클라이언트 초기화 완료 (Service Key 사용)")
             except Exception as e:
                 logger.error(f"Supabase 클라이언트 초기화 중 오류 발생: {str(e)}")
@@ -208,5 +208,3 @@ class StorageService(BaseService):
             logger.error(f"Supabase 파일 삭제 중 오류 발생: {str(e)}")
             
         return False
-    
-    # SQLAlchemy 의존성이 있는 메서드들은 향후 Supabase repository로 이관 예정

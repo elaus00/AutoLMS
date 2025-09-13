@@ -201,15 +201,6 @@ class MaterialService(BaseService):
         """
         count = 0
 
-        # 첨부파일 저장소와 스토리지 서비스가 클래스에 없으면 추가
-        if not hasattr(self, 'attachment_repository'):
-            from app.db.repositories.attachment_repository import AttachmentRepository
-            self.attachment_repository = AttachmentRepository()
-
-        if not hasattr(self, 'storage_service'):
-            from app.services.storage.storage_service import StorageService
-            self.storage_service = StorageService()
-
         # 각 첨부파일 처리
         for attachment in attachments:
             try:
