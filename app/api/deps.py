@@ -1,7 +1,7 @@
 from typing import Generator, Optional, Any
 from fastapi import Depends, HTTPException, status
 from fastapi.security import OAuth2PasswordBearer
-from app.services import CrawlService, auth_service
+from app.services import CrawlService
 from app.services.auth_service import AuthService
 
 from app.services.content import (
