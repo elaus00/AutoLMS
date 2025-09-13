@@ -281,7 +281,7 @@ class NoticeService(BaseService):
                 }
 
                 # 데이터베이스에 저장
-                await self.attachment_repository.create(attachment_data)
+                await self.attachment_repository.upsert(attachment_data)
                 count += 1
                 logger.info(f"첨부파일 메타데이터 저장 완료: {file_name}")
 

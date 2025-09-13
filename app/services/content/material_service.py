@@ -114,7 +114,7 @@ class MaterialService(BaseService):
                 logger.info(f"강의 {course_id}의 강의자료가 없습니다.")
                 return result
             
-            # 4. 각 강의자료 처리 (DB 레벨 중복 체크로 대체)
+            # 4. 각 강의자료 처리
             for material in materials:
                 result["count"] += 1
                 article_id = material.get("article_id")
@@ -124,7 +124,6 @@ class MaterialService(BaseService):
                     continue
                 
                 try:
-                    
                     # 상세 페이지 요청
                     detail_url = material.get("url")
                     detail_response = await eclass_session.get(detail_url)
@@ -145,8 +144,7 @@ class MaterialService(BaseService):
                     
                     # DB 저장
                     material_data = {
-                        'user_id': user_id,  # 필수 필드 추가
-                        'material_id': article_id, 
+                        'material_id': article_id,
                         'course_id': course_id,
                         'title': material.get('title'),
                         'content': material_detail.get('content', ''),

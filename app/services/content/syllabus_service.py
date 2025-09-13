@@ -150,7 +150,7 @@ class SyllabusService(BaseService):
                 updated_syllabus = await self.repository.update(existing_syllabus['id'], **syllabus_json)
                 saved_syllabus = updated_syllabus
             else:
-                saved_syllabus = await self.repository.create(**syllabus_json)
+                saved_syllabus = await self.repository.upsert(**syllabus_json)
             
             if saved_syllabus:
                 logger.info(f"강의계획서 조회 완료 (course_id: {course_id})")

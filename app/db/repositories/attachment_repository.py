@@ -2,15 +2,15 @@ import logging
 from typing import List, Dict, Any, Optional
 from supabase import Client
 from app.core.supabase_client import get_supabase_client
+from app.db.repositories.base_repository import BaseRepository
 
 logger = logging.getLogger(__name__)
 
-class AttachmentRepository:
+class AttachmentRepository(BaseRepository):
     """Supabase를 사용한 첨부파일 저장소"""
 
     def __init__(self):
-        self.supabase: Client = get_supabase_client()
-        self.table_name = "attachments"
+        super().__init__("attachments")
     
     async def get_by_id(self, attachment_id: str) -> Optional[Dict[str, Any]]:
         """ID로 첨부파일 조회"""
@@ -69,38 +69,7 @@ class AttachmentRepository:
     
     async def upsert(self, attachment_data: Dict[str, Any]) -> Optional[Dict[str, Any]]:
         """첨부파일 생성 또는 업데이트 (source_id + source_type + file_name 중복 체크)"""
-        try:
-            # 기존 첨부파일 검색
-            existing = await self.get_by_source_and_filename(
-                attachment_data.get("source_id"),
-                attachment_data.get("source_type"), 
-                attachment_data.get("file_name")
-            )
-            
-            if existing:
-                # 업데이트
-                result = self.supabase.table(self.table_name)\
-                    .update(attachment_data)\
-                    .eq("id", existing["id"])\
-                    .execute()
-                
-                if result.data:
-                    logger.info(f"첨부파일 업데이트 완료: {attachment_data.get('file_name', 'Unknown')}")
-                    return result.data[0]
-            else:
-                # 새로 생성
-                result = self.supabase.table(self.table_name)\
-                    .insert(attachment_data)\
-                    .execute()
-                
-                if result.data:
-                    logger.info(f"첨부파일 생성 완료: {attachment_data.get('file_name', 'Unknown')}")
-                    return result.data[0]
-            
-            return None
-        except Exception as e:
-            logger.error(f"첨부파일 upsert 오류: {e}")
-            return None
+        return await super().upsert(["source_id", "source_type", "file_name"], **attachment_data)
     
     async def get_by_source_and_filename(self, source_id: str, source_type: str, file_name: str) -> Optional[Dict[str, Any]]:
         """소스 ID, 타입, 파일명으로 첨부파일 조회"""

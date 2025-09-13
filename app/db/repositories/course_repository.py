@@ -2,13 +2,13 @@ from typing import List, Optional, Dict, Any
 from supabase import Client
 
 from app.core.supabase_client import get_supabase_client
+from app.db.repositories.base_repository import BaseRepository
 
-class CourseRepository:
+class CourseRepository(BaseRepository):
     """코스 정보 저장소"""
     
     def __init__(self):
-        self.supabase: Client = get_supabase_client()
-        self.table_name = "courses"
+        super().__init__("courses")
     
     async def get_by_user_id(self, user_id: str) -> List[Dict[str, Any]]:
         """사용자 ID로 코스 목록 조회 (user_courses를 통해)"""
@@ -62,18 +62,9 @@ class CourseRepository:
     
     async def upsert(self, **kwargs) -> Optional[Dict[str, Any]]:
         """코스 생성 또는 업데이트 (course_id로 중복 체크)"""
-        try:
-            # user_id 제거 (새로운 구조에서는 courses 테이블에 user_id 없음)
-            course_data = {k: v for k, v in kwargs.items() if k != 'user_id'}
-            
-            result = self.supabase.table(self.table_name)\
-                .upsert(course_data, on_conflict="course_id")\
-                .execute()
-            
-            return result.data[0] if result.data else None
-        except Exception as e:
-            print(f"코스 upsert 오류: {e}")
-            return None
+        # user_id 제거 (새로운 구조에서는 courses 테이블에 user_id 없음)
+        course_data = {k: v for k, v in kwargs.items() if k != 'user_id'}
+        return await super().upsert("course_id", **course_data)
     
     async def upsert_with_user_enrollment(self, user_id: str, **kwargs) -> Optional[Dict[str, Any]]:
         """강의 정보를 upsert하고 사용자를 해당 강의에 등록"""
@@ -100,22 +91,22 @@ class CourseRepository:
         try:
             result = self.supabase.table(self.table_name)\
                 .update(kwargs)\
-                .eq("id", course_id)\
+                .eq("course_id", course_id)\
                 .execute()
-            
+
             return result.data[0] if result.data else None
         except Exception as e:
             print(f"코스 업데이트 오류: {e}")
             return None
-    
+
     async def delete(self, course_id: str) -> bool:
         """코스 삭제"""
         try:
             result = self.supabase.table(self.table_name)\
                 .delete()\
-                .eq("id", course_id)\
+                .eq("course_id", course_id)\
                 .execute()
-            
+
             return len(result.data) > 0
         except Exception as e:
             print(f"코스 삭제 오류: {e}")

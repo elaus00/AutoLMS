@@ -1,4 +1,3 @@
-from typing import Generator, Optional, Any
 from fastapi import Depends, HTTPException, status
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 from app.services import CrawlService
@@ -13,7 +12,6 @@ from app.services.content import (
 )
 from app.services.session import EclassSessionManager
 from app.services.storage import StorageService
-from app.services.attachment_optimization_service import AttachmentOptimizationService, get_attachment_service
 from app.utils.jwt_utils import jwt_manager
 from app.services.session_manager import session_manager
 from app.services.parsers import (
