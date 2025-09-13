@@ -1,7 +1,7 @@
 from fastapi import APIRouter, Depends, HTTPException, status
 from typing import Any
 
-from app.schemas.material import Material, MaterialList
+from app.schemas.material import Material, MaterialList, MaterialRefreshResponse
 from app.api.deps import (
     get_current_user,
     get_course_service,
@@ -42,7 +42,7 @@ async def get_materials(
         "limit": limit
     }
 
-@router.get("/refresh", response_model=MaterialList)
+@router.get("/refresh", response_model=MaterialRefreshResponse)
 async def refresh_materials(
     course_id: str,
     current_user: dict = Depends(get_current_user),
@@ -51,7 +51,7 @@ async def refresh_materials(
 ) -> Any:
     """특정 강의의 강의자료 새로고침"""
     # 강의 존재 여부 확인
-    course = await course_service.get_course(current_user["id"], course_id)
+    course = await course_service.get_course(course_id)
     if not course:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
@@ -59,9 +59,13 @@ async def refresh_materials(
         )
 
     result = await material_service.refresh_all(course_id, current_user["id"], auto_download=True)
+
+    # 새로고침 후 강의자료 목록 반환
+    materials = await material_service.get_materials_by_course(course_id)
     return {
-        "course_id": course_id,
-        "result": result
+        "materials": materials,
+        "total": len(materials),
+        "refresh_result": result
     }
 
 @router.get("/{material_id}", response_model=Material)
@@ -74,7 +78,7 @@ async def get_material(
 ) -> Any:
     """특정 강의자료 조회"""
     # 강의 존재 여부 확인
-    course = await course_service.get_course(current_user["id"], course_id)
+    course = await course_service.get_course(course_id)
     if not course:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
@@ -102,7 +106,7 @@ async def download_material_attachment(
 ) -> Any:
     """강의자료 첨부파일 다운로드 URL 조회"""
     # 강의 존재 여부 확인
-    course = await course_service.get_course(current_user["id"], course_id)
+    course = await course_service.get_course(course_id)
     if not course:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,

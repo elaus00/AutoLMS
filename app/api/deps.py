@@ -1,6 +1,6 @@
 from typing import Generator, Optional, Any
 from fastapi import Depends, HTTPException, status
-from fastapi.security import OAuth2PasswordBearer
+from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 from app.services import CrawlService
 from app.services.auth_service import AuthService
 
@@ -13,6 +13,7 @@ from app.services.content import (
 )
 from app.services.session import EclassSessionManager
 from app.services.storage import StorageService
+from app.services.attachment_optimization_service import AttachmentOptimizationService, get_attachment_service
 from app.utils.jwt_utils import jwt_manager
 from app.services.session_manager import session_manager
 from app.services.parsers import (
@@ -30,7 +31,7 @@ from app.db.repositories.assignment_repository import AssignmentRepository
 from app.db.repositories.attachment_repository import AttachmentRepository
 from app.db.repositories.syllabus_repository import SyllabusRepository
 
-oauth2_scheme = OAuth2PasswordBearer(tokenUrl="/api/v1/auth/login")
+bearer_scheme = HTTPBearer()
 
 # 싱글톤 인스턴스
 _eclass_session_manager = None
@@ -236,24 +237,24 @@ def get_crawl_service(
 
 # 사용자 인증 의존성
 async def get_current_user(
-    token: str = Depends(oauth2_scheme),
+    credentials: HTTPAuthorizationCredentials = Depends(bearer_scheme),
     jwt_manager_instance = Depends(get_jwt_manager),
     auth_service: AuthService = Depends(get_auth_service)
 ):
-    """현재 로그인한 사용자 확인 (JWT 기반)"""
+    """현재 로그인한 사용자 확인 (HTTPBearer + JWT)"""
     try:
         # JWT 토큰 검증
-        payload = jwt_manager_instance.verify_token(token, "access")
+        payload = jwt_manager_instance.verify_token(credentials.credentials, "access")
         user_id = payload.get("user_id")
         eclass_username = payload.get("eclass_username")
-        
+
         if not user_id or not eclass_username:
             raise HTTPException(
                 status_code=status.HTTP_401_UNAUTHORIZED,
                 detail="토큰에서 사용자 정보를 찾을 수 없습니다.",
                 headers={"WWW-Authenticate": "Bearer"},
             )
-        
+
         # 사용자 존재 여부 확인 (선택사항 - 추가 보안)
         user = await auth_service.get_user_by_id(user_id)
         if not user:
@@ -262,14 +263,14 @@ async def get_current_user(
                 detail="사용자를 찾을 수 없습니다.",
                 headers={"WWW-Authenticate": "Bearer"},
             )
-        
+
         # 사용자 정보 반환
         return {
             "id": user_id,
             "eclass_username": eclass_username,
             **user
         }
-        
+
     except HTTPException:
         raise
     except Exception as e:

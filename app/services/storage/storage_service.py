@@ -18,11 +18,11 @@ class StorageService(BaseService):
         self.supabase = None
         self.bucket_name = settings.SUPABASE_BUCKET
         
-        if settings.SUPABASE_URL and settings.SUPABASE_KEY:
+        if settings.SUPABASE_URL and settings.SUPABASE_SERVICE_KEY:
             try:
                 from supabase import create_client
-                self.supabase = create_client(settings.SUPABASE_URL, settings.SUPABASE_KEY)
-                logger.info("Supabase 스토리지 클라이언트 초기화 완료")
+                self.supabase = create_client(settings.SUPABASE_URL, settings.SUPABASE_SERVICE_KEY)
+                logger.info("Supabase 스토리지 클라이언트 초기화 완료 (Service Key 사용)")
             except Exception as e:
                 logger.error(f"Supabase 클라이언트 초기화 중 오류 발생: {str(e)}")
     
