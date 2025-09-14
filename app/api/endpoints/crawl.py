@@ -151,7 +151,7 @@ async def cancel_sync(
 @router.post("/all")
 async def crawl_all_courses(
         background_tasks: BackgroundTasks,
-        auto_download: bool = False,
+        auto_download: bool = True,
         current_user: dict = Depends(get_current_user),
         course_service: CourseService = Depends(get_course_service),
         crawl_service: CrawlService = Depends(get_crawl_service)

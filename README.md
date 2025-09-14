@@ -66,7 +66,7 @@ POSTGRES_DB=autolms
 # Supabase 설정
 SUPABASE_URL=your_supabase_url
 SUPABASE_KEY=your_supabase_key
-SUPABASE_BUCKET_NAME=autolms-file
+SUPABASE_BUCKET_NAME=autolms
 
 # E-Class 설정
 ECLASS_USERNAME=your_eclass_username
