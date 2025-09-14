@@ -71,6 +71,13 @@ class MaterialList(BaseModel):
     total: int
 
 
+class MaterialRefreshResponse(BaseModel):
+    """강의자료 새로고침 응답 스키마"""
+    materials: List[Any]  # 유연한 데이터 형식 지원
+    total: int
+    refresh_result: Optional[Any] = None  # 새로고침 결과
+
+
 class MaterialWithCourse(MaterialOut):
     """강의 정보가 포함된 강의자료 스키마"""
     course_name: Optional[str] = None

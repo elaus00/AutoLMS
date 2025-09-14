@@ -87,7 +87,7 @@ class NoticeService(BaseService):
         Returns:
             Dict[str, Any]: 새로고침 결과
         """
-        result = {"count": 0, "new": 0, "errors": 0}
+        result = {"count": 0, "new": 0, "skipped": 0, "errors": 0}
         
         try:
             # 1. 세션 가져오기
@@ -132,15 +132,24 @@ class NoticeService(BaseService):
                 logger.info(f"강의 {course_id}의 공지사항이 없습니다.")
                 return result
             
-            # 4. 각 공지사항 처리 (DB 레벨 중복 체크로 대체)
+            # 4. 각 공지사항 처리 (서비스 레벨 중복 체크 추가)
             for notice in notices:
                 result["count"] += 1
                 article_id = notice.get("article_id")
-                
+
                 if not article_id:
                     result["errors"] += 1
                     continue
-                
+
+                # 중복 확인: 이미 DB에 존재하는지 체크
+                composite_id = self.repository.generate_composite_id(course_id, article_id)
+                existing_notice = await self.repository.get_by_id(composite_id)
+
+                if existing_notice:
+                    logger.debug(f"공지사항 {article_id}는 이미 존재합니다. 건너뛰기")
+                    result["skipped"] += 1
+                    continue
+
                 try:
                     
                     # 상세 페이지 요청
@@ -166,7 +175,6 @@ class NoticeService(BaseService):
                         'notice_id': article_id,
                         'article_id': article_id,
                         'course_id': course_id,
-                        'user_id': user_id,
                         'title': notice.get('title'),
                         'content': notice_detail.get('content'),
                         'author': notice.get('author'),
@@ -191,7 +199,10 @@ class NoticeService(BaseService):
                 except Exception as e:
                     logger.error(f"공지사항 {article_id} 처리 중 오류: {str(e)}")
                     result["errors"] += 1
-            
+
+            # 최종 로깅
+            logger.info(f"공지사항 크롤링 완료 - 총 {result['count']}개, 새로운 {result['new']}개, 건너뛴 {result['skipped']}개, 오류 {result['errors']}개")
+
             return result
             
         except Exception as e:
@@ -281,7 +292,7 @@ class NoticeService(BaseService):
                 }
 
                 # 데이터베이스에 저장
-                await self.attachment_repository.create(attachment_data)
+                await self.attachment_repository.upsert(attachment_data)
                 count += 1
                 logger.info(f"첨부파일 메타데이터 저장 완료: {file_name}")
 

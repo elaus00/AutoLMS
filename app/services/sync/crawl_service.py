@@ -184,7 +184,7 @@ class CrawlService(BaseService):
 
             logger.info(f"공지사항 크롤링 완료 - 강의: {course_id}")
             logger.info(
-                f"결과: 총 {notice_result['count']}개, 새로운 항목 {notice_result['new']}개, 오류 {notice_result['errors']}개")
+                f"결과: 총 {notice_result['count']}개, 새로운 {notice_result['new']}개, 건너뛴 {notice_result.get('skipped', 0)}개, 오류 {notice_result['errors']}개")
 
             return notice_result
 
@@ -217,7 +217,7 @@ class CrawlService(BaseService):
 
             logger.info(f"과제 크롤링 완료 - 강의: {course_id}")
             logger.info(
-                f"결과: 총 {assignment_result['count']}개, 새로운 항목 {assignment_result['new']}개, 오류 {assignment_result['errors']}개")
+                f"결과: 총 {assignment_result['count']}개, 새로운 {assignment_result['new']}개, 건너뛴 {assignment_result.get('skipped', 0)}개, 오류 {assignment_result['errors']}개")
 
             return assignment_result
 

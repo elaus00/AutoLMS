@@ -1,7 +1,11 @@
-from typing import List, Optional, Dict, Any
+import logging
+from typing import List, Optional, Dict, Any, Union
 from supabase import Client
 
 from app.core.supabase_client import get_supabase_client
+from app.core.id_utils import generate_composite_id, is_valid_composite_id
+
+logger = logging.getLogger(__name__)
 
 class BaseRepository:
     """Supabase를 사용한 기본 저장소 클래스"""
@@ -95,9 +99,53 @@ class BaseRepository:
             
             return len(result.data) > 0
         except Exception as e:
-            print(f"{self.table_name} 삭제 오류: {e}")
+            logger.error(f"{self.table_name} 삭제 오류: {e}")
             return False
-    
+
+    async def upsert(self, conflict_fields: Union[str, List[str]], **kwargs) -> Optional[Dict[str, Any]]:
+        """
+        표준화된 upsert 메서드
+
+        Args:
+            conflict_fields: 중복 체크할 필드 (문자열 또는 리스트)
+            **kwargs: 삽입/업데이트할 데이터
+
+        Returns:
+            생성/업데이트된 레코드 또는 None
+        """
+        try:
+            # conflict_fields가 문자열인 경우 그대로 사용
+            if isinstance(conflict_fields, str):
+                on_conflict = conflict_fields
+            else:
+                # 리스트인 경우 쉼표로 연결
+                on_conflict = ",".join(conflict_fields)
+
+            result = self.supabase.table(self.table_name)\
+                .upsert(kwargs, on_conflict=on_conflict)\
+                .execute()
+
+            if result.data:
+                logger.info(f"{self.table_name} upsert 완료: {kwargs.get('course_id', 'Unknown')}")
+                return result.data[0]
+            return None
+        except Exception as e:
+            logger.error(f"{self.table_name} upsert 오류: {e}")
+            return None
+
+    def generate_composite_id(self, base_id: str, item_id: str) -> str:
+        """
+        Composite ID 생성 헬퍼 메서드
+
+        Args:
+            base_id: 기본 ID (예: course_id)
+            item_id: 항목 ID (예: article_id)
+
+        Returns:
+            생성된 Composite ID
+        """
+        return generate_composite_id(base_id, item_id)
+
     async def get_by_user_id(self, user_id: str) -> List[Dict[str, Any]]:
         """사용자 ID로 레코드 목록 조회"""
         try:

@@ -5,6 +5,27 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [2025-09-13] - Syllabus System Enhancement
+
+### Fixed
+- Syllabus API JWT 토큰 기반 시스템 적용 (user_id 의존성 제거)
+- 웹 방화벽 차단 문제 해결 (다른 크롤러와 동일한 우회 패턴 적용)
+- 강의계획서 파싱 데이터가 DB 스키마와 맞지 않던 문제 수정
+- 파싱된 데이터 필드들(year_semester, professor_name 등)이 null로 저장되던 문제 해결
+
+### Changed
+- `SyllabusService.get_syllabus()` → JWT 기반 `get_syllabus_by_course()` 메서드 추가
+- 강의계획서 크롤링 방식: 직접 URL 접근 → 강의실 접근 후 Referer 설정 방식
+- 데이터 매핑: JSON 필드 저장 → 개별 스키마 필드 매핑
+- 파서 견고성 개선: 단일 패턴 → 다중 패턴 fallback 지원
+
+### Enhanced
+- `SyllabusParser`: 스타일 기반, 클래스 기반, 텍스트 기반, 테이블 기반 파싱 지원
+- 방화벽 우회: `access_course()` → 메인 페이지 방문 → `referer` 설정 패턴 적용
+- 스키마 매핑: 파싱된 데이터를 실제 DB 필드에 정확하게 매핑하는 로직 추가
+
+---
+
 ## [Unreleased] - Auth System Refactor
 
 ### Added

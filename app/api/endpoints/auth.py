@@ -1,7 +1,7 @@
 import logging
 
 from fastapi import APIRouter, Depends, HTTPException, status, Request
-from fastapi.security import OAuth2PasswordBearer
+from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 from typing import Any
 
 from app.schemas.auth import UserCreate, UserLogin, Token, UserOut
@@ -13,7 +13,7 @@ logger = logging.getLogger(__name__)
 
 router = APIRouter()
 
-oauth2_scheme = OAuth2PasswordBearer(tokenUrl="/api/v1/auth/login")
+bearer_scheme = HTTPBearer()
 
 
 @router.post("/register", response_model=UserOut)
@@ -65,7 +65,7 @@ async def login(
 
 @router.post("/logout")
 async def logout(
-        token: str = Depends(oauth2_scheme),
+        credentials: HTTPAuthorizationCredentials = Depends(bearer_scheme),
         auth_service: AuthService = Depends(get_auth_service),
         eclass_session_manager: EclassSessionManager = Depends(get_eclass_session_manager),
         current_user: dict = Depends(get_current_user)
@@ -75,7 +75,7 @@ async def logout(
         user_id = current_user.get("id")
         
         # JWT 세션 종료
-        auth_result = await auth_service.logout(token, user_id)
+        auth_result = await auth_service.logout(credentials.credentials, user_id)
 
         # 이클래스 세션도 함께 종료
         if user_id:

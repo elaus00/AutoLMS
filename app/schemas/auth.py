@@ -39,4 +39,3 @@ class UserLogin(BaseModel):
 class UserOut(BaseModel):
     id: str
     eclass_username: Optional[str] = None
-    email: Optional[str] = None

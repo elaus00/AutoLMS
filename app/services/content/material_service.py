@@ -1,4 +1,5 @@
 import logging
+import re
 from typing import Dict, Any, List, Optional
 
 from app.services.auth_service import AuthService
@@ -113,7 +114,7 @@ class MaterialService(BaseService):
                 logger.info(f"강의 {course_id}의 강의자료가 없습니다.")
                 return result
             
-            # 4. 각 강의자료 처리 (DB 레벨 중복 체크로 대체)
+            # 4. 각 강의자료 처리
             for material in materials:
                 result["count"] += 1
                 article_id = material.get("article_id")
@@ -123,7 +124,6 @@ class MaterialService(BaseService):
                     continue
                 
                 try:
-                    
                     # 상세 페이지 요청
                     detail_url = material.get("url")
                     detail_response = await eclass_session.get(detail_url)
@@ -144,8 +144,7 @@ class MaterialService(BaseService):
                     
                     # DB 저장
                     material_data = {
-                        'user_id': user_id,  # 필수 필드 추가
-                        'material_id': article_id, 
+                        'material_id': article_id,
                         'course_id': course_id,
                         'title': material.get('title'),
                         'content': material_detail.get('content', ''),
@@ -200,15 +199,6 @@ class MaterialService(BaseService):
         """
         count = 0
 
-        # 첨부파일 저장소와 스토리지 서비스가 클래스에 없으면 추가
-        if not hasattr(self, 'attachment_repository'):
-            from app.db.repositories.attachment_repository import AttachmentRepository
-            self.attachment_repository = AttachmentRepository()
-
-        if not hasattr(self, 'storage_service'):
-            from app.services.storage.storage_service import StorageService
-            self.storage_service = StorageService()
-
         # 각 첨부파일 처리
         for attachment in attachments:
             try:
@@ -220,7 +210,10 @@ class MaterialService(BaseService):
                     logger.warning(f"첨부파일 정보 부족: {attachment}")
                     continue
 
-                logger.info(f"첨부파일 처리 시작: {file_name}")
+                # 파일명 정리 (sanitize)
+                safe_file_name = self.sanitize_filename(file_name)
+
+                logger.info(f"첨부파일 처리 시작: {file_name} -> {safe_file_name}")
 
                 # 이클래스에서 파일 다운로드
                 try:
@@ -243,10 +236,10 @@ class MaterialService(BaseService):
                     logger.error(f"파일 다운로드 중 오류: {str(e)}")
                     continue
 
-                # 스토리지에 업로드
+                # 스토리지에 업로드 (안전한 파일명 사용)
                 storage_path = await self.storage_service.upload_file(
                     file_content,
-                    file_name,
+                    safe_file_name,
                     course_id,
                     "materials"  # 콘텐츠 타입
                 )
@@ -257,11 +250,12 @@ class MaterialService(BaseService):
 
                 logger.info(f"파일 업로드 완료: {storage_path}")
 
-                # 첨부파일 메타데이터 저장
+                # 첨부파일 메타데이터 저장 (원본 파일명과 안전한 파일명 모두 저장)
                 attachment_data = {
                     "source_type": "materials",
                     "source_id": str(source_id),
-                    "file_name": file_name,
+                    "file_name": safe_file_name,  # 실제 저장된 파일명
+                    # "original_file_name": file_name,  # 원본 파일명 (표시용)
                     "file_size": file_size,
                     "content_type": attachment.get("content_type", ""),
                     "storage_path": storage_path,
@@ -314,3 +308,39 @@ class MaterialService(BaseService):
         except Exception as e:
             logger.error(f"강의자료 ID 조회 중 오류: {str(e)}")
             return None
+
+    def sanitize_filename(self, filename: str) -> str:
+        """
+        Supabase Storage 업로드용 안전한 파일명으로 변환
+        - 용량 정보(_1.1MB, _2.5KB 등) 제거
+        - 한글, 공백, 특수문자 제거
+        - 영문, 숫자, 점, 언더바만 허용
+        """
+        logger.info(f"원본 파일명: {filename}")
+        
+        # 1. 용량 정보 제거 - 더 간단하고 안전한 패턴
+        # 예: "파일명.pdf (3MB)" -> "파일명.pdf"
+        filename = re.sub(r'\s*\(\d+(\.\d+)?(MB|KB|GB|B)\)\s*', '', filename, flags=re.IGNORECASE)
+        
+        # 2. 끝에 있는 용량 정보 제거
+        # 예: "파일명_1.1MB.pdf" -> "파일명.pdf"
+        filename = re.sub(r'_\d+(\.\d+)?(MB|KB|GB|B)', '', filename, flags=re.IGNORECASE)
+        
+        # 3. 공백을 언더바로 변경
+        filename = filename.replace(' ', '_')
+        
+        # 4. 한글, 특수문자 제거 - 영문, 숫자, 점, 언더바, 하이픈만 허용
+        filename = re.sub(r'[^0-9A-Za-z._-]', '', filename)
+        
+        # 5. 연속된 언더바나 점 정리
+        filename = re.sub(r'[_.-]{2,}', '_', filename)
+        
+        # 6. 시작/끝 언더바나 점 제거
+        filename = filename.strip('_.-')
+        
+        # 7. 빈 파일명 방지
+        if not filename:
+            filename = "unnamed_file"
+        
+        logger.info(f"정리된 파일명: {filename}")
+        return filename

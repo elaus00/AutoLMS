@@ -2,19 +2,20 @@ import logging
 from typing import List, Dict, Any, Optional
 from supabase import Client
 from app.core.supabase_client import get_supabase_client
+from app.db.repositories.base_repository import BaseRepository
 
 logger = logging.getLogger(__name__)
 
-class SyllabusRepository:
+class SyllabusRepository(BaseRepository):
     """Supabase를 사용한 강의계획서 저장소"""
     
     def __init__(self):
-        self.supabase: Client = get_supabase_client()
-        self.table_name = "syllabus"
+        super().__init__("syllabus")
     
     async def get_by_id(self, syllabus_id: str) -> Optional[Dict[str, Any]]:
         """ID로 강의계획서 조회"""
         try:
+            # 모든 필드를 포함하여 조회 (새로운 구조화된 필드들 + 기존 jsonb 필드들)
             result = self.supabase.table(self.table_name)\
                 .select("*")\
                 .eq("id", syllabus_id)\
@@ -43,28 +44,18 @@ class SyllabusRepository:
             logger.error(f"강의계획서 조회 오류: {e}")
             return None
     
-    async def get_by_course_and_user(self, course_id: str, user_id: str) -> List[Dict[str, Any]]:
-        """강의 ID와 사용자 ID로 강의계획서 조회 (레거시 호환성)"""
-        try:
-            result = self.supabase.table(self.table_name)\
-                .select("*")\
-                .eq("course_id", course_id)\
-                .eq("user_id", user_id)\
-                .order("created_at", desc=True)\
-                .execute()
-            
-            return result.data
-        except Exception as e:
-            logger.error(f"강의계획서 사용자별 조회 오류: {e}")
-            return []
     
     async def create(self, **kwargs) -> Optional[Dict[str, Any]]:
         """새로운 강의계획서 생성"""
         try:
+            # id를 course_id로 설정 (DB 체크 제약 조건 만족)
+            if "course_id" in kwargs:
+                kwargs["id"] = kwargs["course_id"]
+
             result = self.supabase.table(self.table_name)\
                 .insert(kwargs)\
                 .execute()
-            
+
             if result.data:
                 logger.info(f"강의계획서 생성 완료: {kwargs.get('course_id', 'Unknown')}")
                 return result.data[0]
@@ -72,21 +63,15 @@ class SyllabusRepository:
         except Exception as e:
             logger.error(f"강의계획서 생성 오류: {e}")
             return None
-    
+
     async def upsert(self, **kwargs) -> Optional[Dict[str, Any]]:
-        """강의계획서 생성 또는 업데이트 (course_id, user_id로 중복 체크)"""
-        try:
-            result = self.supabase.table(self.table_name)\
-                .upsert(kwargs, on_conflict="course_id,user_id")\
-                .execute()
-            
-            if result.data:
-                logger.info(f"강의계획서 upsert 완료: {kwargs.get('course_id', 'Unknown')}")
-                return result.data[0]
-            return None
-        except Exception as e:
-            logger.error(f"강의계획서 upsert 오류: {e}")
-            return None
+        """강의계획서 생성 또는 업데이트 (id=course_id, 1:1 관계)"""
+        # id를 course_id로 설정 (DB 체크 제약 조건 만족)
+        if "course_id" in kwargs:
+            kwargs["id"] = kwargs["course_id"]
+
+        # id(=course_id)를 기준으로 중복 체크
+        return await super().upsert("id", **kwargs)
     
     async def update(self, syllabus_id: str, **kwargs) -> Optional[Dict[str, Any]]:
         """강의계획서 업데이트"""

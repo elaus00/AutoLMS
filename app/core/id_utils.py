@@ -3,6 +3,20 @@ ID 생성 유틸리티 함수들
 Composite Key 전략을 위한 ID 생성 및 파싱 함수들
 """
 
+def generate_composite_id(base_id: str, item_id: str) -> str:
+    """
+    일반적인 Composite ID 생성
+
+    Args:
+        base_id: 기본 ID (예: course_id)
+        item_id: 항목 ID (예: article_id)
+
+    Returns:
+        str: Composite ID (예: "CS101_123")
+    """
+    return f"{base_id}_{item_id}"
+
+
 def generate_material_id(course_id: str, material_id: str) -> str:
     """
     강의자료용 Composite ID 생성

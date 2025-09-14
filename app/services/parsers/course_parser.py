@@ -7,7 +7,8 @@ logger = logging.getLogger(__name__)
 
 class CourseParser(ContentParser):
     """강의 정보 파싱 클래스"""
-    
+
+    # TODO: insturctor, semester, year, last_crawled 필드 파싱 로직 추가 필요
     def parse_list(self, html: str) -> List[Dict[str, Any]]:
         """강의 목록 페이지 파싱"""
         try:
@@ -54,7 +55,7 @@ class CourseParser(ContentParser):
         except Exception as e:
             logger.error(f"강의 목록 파싱 중 오류 발생: {e}")
             return []
-    
+
     def parse_detail(self, html: str) -> Dict[str, Any]:
         """
         강의 상세 페이지 파싱 (메뉴 정보)

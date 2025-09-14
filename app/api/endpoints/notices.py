@@ -25,7 +25,7 @@ async def get_notices(
 ) -> Any:
     """특정 강의의 공지사항 목록 조회"""
     # 강의 존재 여부 확인
-    course = await course_service.get_course(current_user["id"], course_id)
+    course = await course_service.get_course(course_id)
     if not course:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
@@ -51,7 +51,7 @@ async def refresh_notices(
 ) -> Any:
     """특정 강의의 공지사항 새로고침"""
     # 강의 존재 여부 확인
-    course = await course_service.get_course(current_user["id"], course_id)
+    course = await course_service.get_course(course_id)
     if not course:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
@@ -74,7 +74,7 @@ async def get_notice(
 ) -> Any:
     """특정 공지사항 조회"""
     # 강의 존재 여부 확인
-    course = await course_service.get_course(current_user["id"], course_id)
+    course = await course_service.get_course(course_id)
     if not course:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
@@ -102,7 +102,7 @@ async def download_notice_attachment(
 ) -> Any:
     """공지사항 첨부파일 다운로드 URL 조회"""
     # 강의 존재 여부 확인
-    course = await course_service.get_course(current_user["id"], course_id)
+    course = await course_service.get_course(course_id)
     if not course:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
