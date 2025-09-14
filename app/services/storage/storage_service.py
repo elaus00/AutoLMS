@@ -21,8 +21,11 @@ class StorageService(BaseService):
         if settings.SUPABASE_URL:
             try:
                 from supabase import create_client
-                self.supabase = create_client(settings.SUPABASE_URL, settings.SUPABASE_KEY)
-                logger.info("Supabase 스토리지 클라이언트 초기화 완료 (Service Key 사용)")
+                # Storage 작업을 위해 Service Key 우선 사용, 없으면 Anon Key 사용
+                supabase_key = settings.SUPABASE_SERVICE_KEY or settings.SUPABASE_KEY
+                self.supabase = create_client(settings.SUPABASE_URL, supabase_key)
+                key_type = "Service Key" if settings.SUPABASE_SERVICE_KEY else "Anon Key"
+                logger.info(f"Supabase 스토리지 클라이언트 초기화 완료 ({key_type} 사용)")
             except Exception as e:
                 logger.error(f"Supabase 클라이언트 초기화 중 오류 발생: {str(e)}")
     
