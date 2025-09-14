@@ -8,9 +8,8 @@ class NoticeBase(BaseModel):
     id: str  # Composite Primary Key: "{course_id}_{notice_id}"
     course_id: str  # 강의 ID
     notice_id: str  # 공지사항 원본 ID (e-Class에서)
-    user_id: str  # 사용자 ID
     title: str  # 공지사항 제목
-    content: Optional[str] = None  # 공지사항 내용
+    content: Optional[str] = None  # 공지사항
     author: Optional[str] = None  # 작성자
     date: Optional[str] = None  # 작성일 (e-Class 형식)
     views: Optional[int] = 0  # 조회수
