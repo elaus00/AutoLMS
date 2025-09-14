@@ -143,7 +143,7 @@ class AssignmentService(BaseService):
         Returns:
             Dict[str, Any]: 새로고침 결과
         """
-        result = {"count": 0, "new": 0, "errors": 0}
+        result = {"count": 0, "new": 0, "skipped": 0, "errors": 0}
         
         try:
             # 1. 세션 가져오기
@@ -188,15 +188,24 @@ class AssignmentService(BaseService):
                 logger.info(f"강의 {course_id}의 과제가 없습니다.")
                 return result
             
-            # 4. 각 과제 처리 (DB 레벨 중복 체크로 대체)
+            # 4. 각 과제 처리 (서비스 레벨 중복 체크 추가)
             for assignment in assignments:
                 result["count"] += 1
                 assignment_id = assignment.get("assignment_id")
-                
+
                 if not assignment_id:
                     result["errors"] += 1
                     continue
-                
+
+                # 중복 확인: 이미 DB에 존재하는지 체크
+                composite_id = self.repository.generate_composite_id(course_id, assignment_id)
+                existing_assignment = await self.repository.get_by_id(composite_id)
+
+                if existing_assignment:
+                    logger.debug(f"과제 {assignment_id}는 이미 존재합니다. 건너뛰기")
+                    result["skipped"] += 1
+                    continue
+
                 try:
                     
                     # 상세 페이지 요청
@@ -219,7 +228,6 @@ class AssignmentService(BaseService):
                     
                     # DB 저장
                     assignment_data = {
-                        'user_id': user_id,
                         'assignment_id': assignment_id,
                         'course_id': course_id,
                         'title': assignment.get('title'),
@@ -247,7 +255,10 @@ class AssignmentService(BaseService):
                 except Exception as e:
                     logger.error(f"과제 {assignment_id} 처리 중 오류: {str(e)}")
                     result["errors"] += 1
-            
+
+            # 최종 로깅
+            logger.info(f"과제 크롤링 완료 - 총 {result['count']}개, 새로운 {result['new']}개, 건너뛴 {result['skipped']}개, 오류 {result['errors']}개")
+
             return result
             
         except Exception as e:
