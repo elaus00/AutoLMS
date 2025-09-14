@@ -144,13 +144,8 @@ class SyllabusService(BaseService):
             # DB 스키마에 맞게 데이터 매핑
             syllabus_json = self._map_to_schema(syllabus_data, course_id)
             
-            # 저장소에 저장
-            existing_syllabus = await self.repository.get_by_course_id(course_id)
-            if existing_syllabus:
-                updated_syllabus = await self.repository.update(existing_syllabus['id'], **syllabus_json)
-                saved_syllabus = updated_syllabus
-            else:
-                saved_syllabus = await self.repository.upsert(**syllabus_json)
+            # 저장소에 저장 (course_id 기반 upsert)
+            saved_syllabus = await self.repository.upsert(**syllabus_json)
             
             if saved_syllabus:
                 logger.info(f"강의계획서 조회 완료 (course_id: {course_id})")

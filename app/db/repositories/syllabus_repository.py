@@ -48,7 +48,7 @@ class SyllabusRepository(BaseRepository):
     async def create(self, **kwargs) -> Optional[Dict[str, Any]]:
         """새로운 강의계획서 생성"""
         try:
-            # id를 course_id로 설정 (1:1 관계 보장)
+            # id를 course_id로 설정 (DB 체크 제약 조건 만족)
             if "course_id" in kwargs:
                 kwargs["id"] = kwargs["course_id"]
 
@@ -65,11 +65,12 @@ class SyllabusRepository(BaseRepository):
             return None
 
     async def upsert(self, **kwargs) -> Optional[Dict[str, Any]]:
-        """강의계획서 생성 또는 업데이트 (course_id로 중복 체크)"""
-        # id를 course_id로 설정 (1:1 관계 보장)
+        """강의계획서 생성 또는 업데이트 (id=course_id, 1:1 관계)"""
+        # id를 course_id로 설정 (DB 체크 제약 조건 만족)
         if "course_id" in kwargs:
             kwargs["id"] = kwargs["course_id"]
 
+        # id(=course_id)를 기준으로 중복 체크
         return await super().upsert("id", **kwargs)
     
     async def update(self, syllabus_id: str, **kwargs) -> Optional[Dict[str, Any]]:
