@@ -21,6 +21,7 @@ class ScheduledTask:
     enabled: bool = True
     max_retries: int = 3
     current_retries: int = 0
+    running: bool = False  # 작업 실행 상태 (동시 실행 방지)
 
 class SchedulerService:
     """백그라운드 작업 스케줄러"""
@@ -94,26 +95,37 @@ class SchedulerService:
                 await asyncio.sleep(5)  # 오류 시 5초 대기
     
     async def _execute_task(self, task: ScheduledTask) -> None:
-        """작업 실행"""
+        """작업 실행 (동시성 제어 포함)"""
+
+        # 동시 실행 방지 체크
+        if task.running:
+            logger.info(f"작업 {task.name}이 이미 실행 중입니다. 건너뜀")
+            return
+
+        task.running = True
+        start_time = datetime.now()
+
         try:
             logger.info(f"작업 실행 시작: {task.name}")
-            
+
             # 작업 실행
             if asyncio.iscoroutinefunction(task.func):
                 await task.func()
             else:
                 task.func()
-            
+
             # 성공 시 다음 실행 시간 설정
-            task.last_run = datetime.now()
+            task.last_run = start_time
             task.next_run = task.last_run + timedelta(seconds=task.interval)
             task.current_retries = 0
-            
-            logger.info(f"작업 실행 완료: {task.name}")
-            
+
+            duration = (datetime.now() - start_time).total_seconds()
+            logger.info(f"작업 실행 완료: {task.name} (소요시간: {duration:.2f}초)")
+
         except Exception as e:
-            logger.error(f"작업 실행 중 오류 ({task.name}): {str(e)}")
-            
+            duration = (datetime.now() - start_time).total_seconds()
+            logger.error(f"작업 실행 중 오류 ({task.name}): {str(e)} (소요시간: {duration:.2f}초)")
+
             # 재시도 로직
             task.current_retries += 1
             if task.current_retries < task.max_retries:
@@ -122,9 +134,14 @@ class SchedulerService:
                 logger.warning(f"작업 재시도 예정: {task.name} ({task.current_retries}/{task.max_retries})")
             else:
                 # 최대 재시도 횟수 초과 시 정상 간격으로 재설정
-                task.next_run = datetime.now() + timedelta(seconds=task.interval)
+                task.last_run = start_time
+                task.next_run = task.last_run + timedelta(seconds=task.interval)
                 task.current_retries = 0
-                logger.error(f"작업 최대 재시도 횟수 초과: {task.name}")
+                logger.error(f"작업 최대 재시도 초과, 다음 주기로 연기: {task.name}")
+
+        finally:
+            # 반드시 실행 상태 해제
+            task.running = False
     
     async def _register_default_tasks(self) -> None:
         """기본 작업들 등록"""
