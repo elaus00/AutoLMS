@@ -93,8 +93,8 @@ class AssignmentRepository(BaseRepository):
 
             kwargs["id"] = composite_id
 
-        return await super().upsert("id", **kwargs)
-    
+        return await super().upsert("assignment_id", **kwargs)
+
     async def update(self, assignment_id: str, **kwargs) -> Optional[Dict[str, Any]]:
         """과제 업데이트"""
         try:

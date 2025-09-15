@@ -26,10 +26,14 @@ class AssignmentService(BaseService):
         self.repository = assignment_repository
         self.attachment_repository = attachment_repository
         self.storage_service = storage_service
+        self.lock_manager = None  # Lazy initialization
         logger.info("AssignmentService 초기화 완료")
     
     async def initialize(self) -> None:
         """서비스 초기화"""
+        # Lazy import to avoid circular import
+        from app.services.sync.article_lock_manager import get_article_lock_manager
+        self.lock_manager = get_article_lock_manager()
         logger.info("AssignmentService 시작")
         pass
 
@@ -188,7 +192,7 @@ class AssignmentService(BaseService):
                 logger.info(f"강의 {course_id}의 과제가 없습니다.")
                 return result
             
-            # 4. 각 과제 처리 (서비스 레벨 중복 체크 추가)
+            # 4. 각 과제 처리 (ARTL_NUM 기반 동시성 제어 + 서비스 레벨 중복 체크)
             for assignment in assignments:
                 result["count"] += 1
                 assignment_id = assignment.get("assignment_id")
@@ -196,6 +200,10 @@ class AssignmentService(BaseService):
                 if not assignment_id:
                     result["errors"] += 1
                     continue
+
+                # Lock Manager 초기화 확인 (lazy initialization)
+                if self.lock_manager is None:
+                    await self.initialize()
 
                 # 중복 확인: 이미 DB에 존재하는지 체크
                 composite_id = self.repository.generate_composite_id(course_id, assignment_id)
@@ -206,55 +214,56 @@ class AssignmentService(BaseService):
                     result["skipped"] += 1
                     continue
 
-                try:
-                    
-                    # 상세 페이지 요청
-                    detail_url = assignment.get("url")
-                    detail_response = await eclass_session.get(detail_url)
-                    if not detail_response:
-                        logger.error(f"과제 상세 정보 요청 실패: {assignment_id}")
-                        result["errors"] += 1
-                        continue
-                    
-                    # 상세 정보 파싱 (AJAX 요청 포함)
-                    assignment_detail = await self.parser.parse_detail_with_attachments(
-                        eclass_session, 
-                        detail_response.text, 
-                        course_id
-                    )
-                    
-                    # 기본 필드 정보 병합
-                    assignment.update(assignment_detail)
-                    
-                    # DB 저장
-                    assignment_data = {
-                        'assignment_id': assignment_id,
-                        'course_id': course_id,
-                        'title': assignment.get('title'),
-                        'content': assignment_detail.get('content', ''),
-                        'start_date': assignment.get('start_date'),
-                        'end_date': assignment.get('end_date', assignment_detail.get('due_date')),
-                        'status': assignment.get('status', 'active')
-                    }
-                    
-                    upserted_assignment = await self.repository.upsert(**assignment_data)
-                    if upserted_assignment:
-                        result["new"] += 1
-                    
-                    # 첨부파일 처리
-                    if auto_download and assignment.get("attachments"):
-                        attachment_count = await self._process_attachments(
-                            user_id,
+                # Lock을 사용하여 동일한 ARTL_NUM에 대한 중복 요청 방지
+                async with self.lock_manager.acquire_lock(composite_id):
+                    try:
+                        # 상세 페이지 요청
+                        detail_url = assignment.get("url")
+                        detail_response = await eclass_session.get(detail_url)
+                        if not detail_response:
+                            logger.error(f"과제 상세 정보 요청 실패: {assignment_id}")
+                            result["errors"] += 1
+                            continue
+
+                        # 상세 정보 파싱 (AJAX 요청 포함)
+                        assignment_detail = await self.parser.parse_detail_with_attachments(
                             eclass_session,
-                            assignment["attachments"],
-                            upserted_assignment.get('id'),
+                            detail_response.text,
                             course_id
                         )
-                        logger.info(f"처리된 첨부파일 수: {attachment_count}")
-                    
-                except Exception as e:
-                    logger.error(f"과제 {assignment_id} 처리 중 오류: {str(e)}")
-                    result["errors"] += 1
+
+                        # 기본 필드 정보 병합
+                        assignment.update(assignment_detail)
+
+                        # DB 저장
+                        assignment_data = {
+                            'assignment_id': assignment_id,
+                            'course_id': course_id,
+                            'title': assignment.get('title'),
+                            'content': assignment_detail.get('content', ''),
+                            'start_date': assignment.get('start_date'),
+                            'end_date': assignment.get('end_date', assignment_detail.get('due_date')),
+                            'status': assignment.get('status', 'active')
+                        }
+
+                        upserted_assignment = await self.repository.upsert(**assignment_data)
+                        if upserted_assignment:
+                            result["new"] += 1
+
+                        # 첨부파일 처리
+                        if auto_download and assignment.get("attachments"):
+                            attachment_count = await self._process_attachments(
+                                user_id,
+                                eclass_session,
+                                assignment["attachments"],
+                                upserted_assignment.get('id'),
+                                course_id
+                            )
+                            logger.info(f"처리된 첨부파일 수: {attachment_count}")
+
+                    except Exception as e:
+                        logger.error(f"과제 {assignment_id} 처리 중 오류: {str(e)}")
+                        result["errors"] += 1
 
             # 최종 로깅
             logger.info(f"과제 크롤링 완료 - 총 {result['count']}개, 새로운 {result['new']}개, 건너뛴 {result['skipped']}개, 오류 {result['errors']}개")

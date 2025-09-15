@@ -101,8 +101,8 @@ class MaterialRepository(BaseRepository):
 
         kwargs['id'] = composite_id
 
-        return await super().upsert("id", **kwargs)
-    
+        return await super().upsert("material_id", **kwargs)
+
     async def update(self, material_id: str, **kwargs) -> Optional[Dict[str, Any]]:
         """학습자료 업데이트"""
         try:

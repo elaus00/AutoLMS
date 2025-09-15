@@ -77,7 +77,7 @@ class NoticeRepository(BaseRepository):
             composite_id = self.generate_composite_id(kwargs["course_id"], kwargs["notice_id"])
             kwargs["id"] = composite_id
 
-        return await super().upsert("id", **kwargs)
+        return await super().upsert("notice_id", **kwargs)
     
     async def update(self, notice_id: str, **kwargs) -> Optional[Dict[str, Any]]:
         """공지사항 업데이트"""

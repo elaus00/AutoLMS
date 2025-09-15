@@ -34,7 +34,7 @@ class Settings(BaseSettings):
 
     # 파일 설정
     DOWNLOAD_DIR: str = "./downloads"
-    AUTO_DOWNLOAD: bool = False
+    AUTO_DOWNLOAD: bool = True
     MAX_FILE_SIZE: int = 104857600  # 100MB
     ALLOWED_FILE_TYPES: str = ".pdf,.doc,.docx,.ppt,.pptx,.xls,.xlsx,.zip,.rar,.7z,.txt,.jpg,.jpeg,.png,.gif"
 

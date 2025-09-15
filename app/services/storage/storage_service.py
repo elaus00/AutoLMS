@@ -60,8 +60,10 @@ class StorageService(BaseService):
             str: 스토리지 경로
         """
         try:
-            # 파일 경로 생성
-            file_path = f"{course_id}/{content_type}/{filename}"
+            # 파일 경로 생성 (course_id와 filename 모두 sanitize)
+            safe_course_id = self._sanitize_path_component(course_id)
+            safe_filename = self._sanitize_path_component(filename)
+            file_path = f"{safe_course_id}/{content_type}/{safe_filename}"
             
             # Supabase Storage에 업로드
             if self.supabase:
@@ -211,3 +213,27 @@ class StorageService(BaseService):
             logger.error(f"Supabase 파일 삭제 중 오류 발생: {str(e)}")
             
         return False
+    
+    def _sanitize_path_component(self, component: str) -> str:
+        """
+        Supabase Storage용 경로 컴포넌트 정리
+        - 한글, 특수문자를 영문/숫자로 변환
+        - Supabase Storage 키 규칙에 맞게 변환
+        """
+        import re
+        import urllib.parse
+        
+        # URL 인코딩 후 특수문자 제거
+        encoded = urllib.parse.quote(component, safe='')
+        # %를 _로 변환하여 Supabase 키 규칙에 맞춤
+        sanitized = encoded.replace('%', '_')
+        # 연속된 언더스코어 정리
+        sanitized = re.sub(r'_{2,}', '_', sanitized)
+        # 시작/끝 언더스코어 제거
+        sanitized = sanitized.strip('_')
+        
+        # 빈 문자열 방지
+        if not sanitized:
+            sanitized = "unknown"
+            
+        return sanitized

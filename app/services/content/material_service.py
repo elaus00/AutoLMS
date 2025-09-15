@@ -31,15 +31,20 @@ class MaterialService(BaseService):
         self.auth_service = auth_service
         self.attachment_repository = attachment_repository
         self.storage_service = storage_service
+        self.lock_manager = None  # Lazy initialization
     
     async def initialize(self) -> None:
         """서비스 초기화"""
+        # Lazy import to avoid circular import
+        from app.services.sync.article_lock_manager import get_article_lock_manager
+        self.lock_manager = get_article_lock_manager()
+
         logger.info("MaterialService 초기화 시작")
-        
+
         # 필요한 초기화 작업 수행
         if hasattr(self.storage_service, 'initialize'):
             await self.storage_service.initialize()
-        
+
         logger.info("MaterialService 초기화 완료")
     
     async def close(self) -> None:
@@ -69,7 +74,7 @@ class MaterialService(BaseService):
         Returns:
             Dict[str, Any]: 새로고침 결과
         """
-        result = {"count": 0, "new": 0, "errors": 0}
+        result = {"count": 0, "new": 0, "skipped": 0, "errors": 0}
         
         try:
             # 1. 세션 가져오기
@@ -114,62 +119,77 @@ class MaterialService(BaseService):
                 logger.info(f"강의 {course_id}의 강의자료가 없습니다.")
                 return result
             
-            # 4. 각 강의자료 처리
+            # 4. 각 강의자료 처리 (ARTL_NUM 기반 동시성 제어 + 서비스 레벨 중복 체크)
             for material in materials:
                 result["count"] += 1
                 article_id = material.get("article_id")
-                
+
                 if not article_id:
                     result["errors"] += 1
                     continue
-                
+
+                # 중복 확인: 이미 DB에 존재하는지 체크
                 try:
-                    # 상세 페이지 요청
-                    detail_url = material.get("url")
-                    detail_response = await eclass_session.get(detail_url)
-                    if not detail_response:
-                        logger.error(f"강의자료 상세 정보 요청 실패: {article_id}")
-                        result["errors"] += 1
+                    composite_id = self.repository.generate_composite_id(course_id, article_id)
+                    existing_material = await self.repository.get_by_id(composite_id)
+                    
+                    if existing_material:
+                        logger.debug(f"강의자료 {article_id}는 이미 존재합니다. 건너뛰기")
+                        result["skipped"] += 1
                         continue
-                    
-                    # 상세 정보 파싱 (AJAX 요청 포함)
-                    material_detail = await self.parser.parse_detail_with_attachments(
-                        eclass_session, 
-                        detail_response.text, 
-                        course_id
-                    )
-                    
-                    # 기본 필드 정보 병합
-                    material.update(material_detail)
-                    
-                    # DB 저장
-                    material_data = {
-                        'material_id': article_id,
-                        'course_id': course_id,
-                        'title': material.get('title'),
-                        'content': material_detail.get('content', ''),
-                        'author': material.get('author'),
-                        'date': material.get('date'),
-                        'views': material.get('views')
-                    }
-                    
-                    upserted_material = await self.repository.upsert(**material_data)
-                    if upserted_material:
-                        result["new"] += 1
-                    
-                    # 첨부파일 처리
-                    if auto_download and material.get("attachments"):
-                        attachment_count = await self._process_attachments(
+                except Exception as e:
+                    logger.debug(f"중복 확인 중 오류 (신규 항목으로 처리): {str(e)}")
+                    # 오류가 발생하면 신규 항목으로 간주하고 계속 진행
+
+                # Lock을 사용하여 동일한 ARTL_NUM에 대한 중복 요청 방지
+                async with self.lock_manager.acquire_lock(composite_id):
+                    try:
+                        # 상세 페이지 요청
+                        detail_url = material.get("url")
+                        detail_response = await eclass_session.get(detail_url)
+                        if not detail_response:
+                            logger.error(f"강의자료 상세 정보 요청 실패: {article_id}")
+                            result["errors"] += 1
+                            continue
+
+                        # 상세 정보 파싱 (AJAX 요청 포함)
+                        material_detail = await self.parser.parse_detail_with_attachments(
                             eclass_session,
-                            material["attachments"],
-                            upserted_material.get('id'),
+                            detail_response.text,
                             course_id
                         )
-                        logger.info(f"처리된 첨부파일 수: {attachment_count}")
-                    
-                except Exception as e:
-                    logger.error(f"강의자료 {article_id} 처리 중 오류: {str(e)}")
-                    result["errors"] += 1
+
+                        # 기본 필드 정보 병합
+                        material.update(material_detail)
+
+                        # DB 저장
+                        material_data = {
+                            'material_id': article_id,
+                            'course_id': course_id,
+                            'title': material.get('title'),
+                            'content': material_detail.get('content', ''),
+                            'author': material.get('author'),
+                            'date': material.get('date'),
+                            'views': material.get('views')
+                        }
+
+                        upserted_material = await self.repository.upsert(**material_data)
+                        if upserted_material:
+                            result["new"] += 1
+
+                        # 첨부파일 처리
+                        if auto_download and material.get("attachments"):
+                            attachment_count = await self._process_attachments(
+                                eclass_session,
+                                material["attachments"],
+                                upserted_material.get('id'),
+                                course_id
+                            )
+                            logger.info(f"처리된 첨부파일 수: {attachment_count}")
+
+                    except Exception as e:
+                        logger.error(f"강의자료 {article_id} 처리 중 오류: {str(e)}")
+                        result["errors"] += 1
             
             return result
             
