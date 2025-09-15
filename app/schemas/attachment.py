@@ -3,7 +3,6 @@ from typing import Optional, List
 from datetime import datetime
 
 class AttachmentBase(BaseModel):
-    user_id: str  # UUID string
     course_id: str
     related_type: str  # e.g., 'notices', 'materials', 'assignments'
     related_id: int
@@ -22,7 +21,6 @@ class AttachmentCreate(AttachmentBase):
     pass
 
 class AttachmentUpdate(BaseModel):
-    user_id: Optional[str] = None
     course_id: Optional[str] = None
     related_type: Optional[str] = None
     related_id: Optional[int] = None

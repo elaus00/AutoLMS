@@ -20,7 +20,6 @@ class NoticeCreate(BaseModel):
     """공지사항 생성 요청 스키마 - ID는 자동 생성"""
     course_id: str
     notice_id: str  # 원본 e-Class ID
-    user_id: str
     title: str
     content: Optional[str] = None
     author: Optional[str] = None

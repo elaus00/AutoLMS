@@ -8,7 +8,6 @@ class MaterialBase(BaseModel):
     id: str  # Composite Primary Key: "{course_id}_{material_id}"
     course_id: str  # 강의 ID
     material_id: str  # 강의자료 원본 ID (e-Class에서)
-    user_id: str  # 사용자 ID
     title: str  # 자료 제목
     content: Optional[str] = None  # 자료 내용
     author: Optional[str] = None  # 작성자
@@ -21,7 +20,6 @@ class MaterialCreate(BaseModel):
     """강의자료 생성 요청 스키마 - ID는 자동 생성"""
     course_id: str
     material_id: str  # 원본 e-Class ID
-    user_id: str
     title: str
     content: Optional[str] = None
     author: Optional[str] = None
