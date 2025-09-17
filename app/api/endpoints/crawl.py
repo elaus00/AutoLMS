@@ -103,12 +103,22 @@ async def sync_all_courses(
 
         # 백그라운드 작업으로 동기화 실행
         for course in courses:
-            background_tasks.add_task(sync_course_background, course.id)
+            if isinstance(course, dict):
+                course_id = course.get('id') or course.get('course_id')
+            else:
+                course_id = getattr(course, 'id', None) or getattr(course, 'course_id', None)
+            logger.info(f"크롤링 시작할 강의: {course} -> course_id: {course_id}")
+            background_tasks.add_task(sync_course_background, course_id)
 
         return {
             "status": "started",
             "message": f"모든 강의 동기화가 시작되었습니다 ({len(courses)}개)",
-            "courses": [{"id": course.id, "name": course.name} for course in courses]
+            "courses": [{
+                "id": course.get('id') or course.get('course_id') if isinstance(course, dict)
+                     else getattr(course, 'id', None) or getattr(course, 'course_id', None),
+                "name": course.get('name') or course.get('course_name') if isinstance(course, dict)
+                       else getattr(course, 'name', None) or getattr(course, 'course_name', None)
+            } for course in courses]
         }
 
     except Exception as e:

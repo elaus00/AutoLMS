@@ -141,6 +141,10 @@ class MaterialService(BaseService):
                     logger.debug(f"중복 확인 중 오류 (신규 항목으로 처리): {str(e)}")
                     # 오류가 발생하면 신규 항목으로 간주하고 계속 진행
 
+                # Lock Manager 초기화 확인 (lazy initialization)
+                if self.lock_manager is None:
+                    await self.initialize()
+
                 # Lock을 사용하여 동일한 ARTL_NUM에 대한 중복 요청 방지
                 async with self.lock_manager.acquire_lock(composite_id):
                     try:
@@ -177,15 +181,15 @@ class MaterialService(BaseService):
                         if upserted_material:
                             result["new"] += 1
 
-                        # 첨부파일 처리
-                        if auto_download and material.get("attachments"):
-                            attachment_count = await self._process_attachments(
-                                eclass_session,
-                                material["attachments"],
-                                upserted_material.get('id'),
-                                course_id
-                            )
-                            logger.info(f"처리된 첨부파일 수: {attachment_count}")
+                            # 첨부파일 처리
+                            if auto_download and material.get("attachments"):
+                                attachment_count = await self._process_attachments(
+                                    eclass_session,
+                                    material["attachments"],
+                                    upserted_material.get('id'),
+                                    course_id
+                                )
+                                logger.info(f"처리된 첨부파일 수: {attachment_count}")
 
                     except Exception as e:
                         logger.error(f"강의자료 {article_id} 처리 중 오류: {str(e)}")

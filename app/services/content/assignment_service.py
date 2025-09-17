@@ -112,10 +112,10 @@ class AssignmentService(BaseService):
             # 실제 DB 모델에는 이 필드가 없지만 응답 시 포함됨
             try:
                 attachments = await self.attachment_repository.get_by_source(
-                    str(assignment.id), "assignments"
+                    str(assignment.get('id')), "assignments"
                 )
-                if hasattr(assignment, "attachments"):
-                    assignment.attachments = attachments
+                if isinstance(assignment, dict):
+                    assignment["attachments"] = attachments
                 else:
                     # DB 모델에 없는 필드를 추가 (객체 메모리에만 존재)
                     setattr(assignment, "attachments", attachments)
@@ -214,6 +214,10 @@ class AssignmentService(BaseService):
                     result["skipped"] += 1
                     continue
 
+                # Lock Manager 초기화 확인 (lazy initialization)
+                if self.lock_manager is None:
+                    await self.initialize()
+
                 # Lock을 사용하여 동일한 ARTL_NUM에 대한 중복 요청 방지
                 async with self.lock_manager.acquire_lock(composite_id):
                     try:
@@ -250,16 +254,16 @@ class AssignmentService(BaseService):
                         if upserted_assignment:
                             result["new"] += 1
 
-                        # 첨부파일 처리
-                        if auto_download and assignment.get("attachments"):
-                            attachment_count = await self._process_attachments(
-                                user_id,
-                                eclass_session,
-                                assignment["attachments"],
-                                upserted_assignment.get('id'),
-                                course_id
-                            )
-                            logger.info(f"처리된 첨부파일 수: {attachment_count}")
+                            # 첨부파일 처리
+                            if auto_download and assignment.get("attachments"):
+                                attachment_count = await self._process_attachments(
+                                    user_id,
+                                    eclass_session,
+                                    assignment["attachments"],
+                                    upserted_assignment.get('id'),
+                                    course_id
+                                )
+                                logger.info(f"처리된 첨부파일 수: {attachment_count}")
 
                     except Exception as e:
                         logger.error(f"과제 {assignment_id} 처리 중 오류: {str(e)}")

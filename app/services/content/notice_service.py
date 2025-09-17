@@ -57,15 +57,15 @@ class NoticeService(BaseService):
             logger.info(f"사용자 {user_id}의 강의 {course_id} 공지사항 조회")
             
             # 데이터베이스에서 공지사항 조회
-            notices = await self.repository.get_by_course_and_user(course_id, user_id)
-            
+            notices = await self.repository.get_by_course_id(course_id)
+
             # 공지사항이 없으면 새로고침 시도
             if not notices:
                 logger.info(f"강의 {course_id}의 공지사항이 없습니다. 새로고침을 시도합니다.")
                 result = await self.refresh_all(course_id, user_id)
                 if result["new"] > 0:
                     # 새로고침 후 다시 조회
-                    notices = await self.repository.get_by_course_and_user(course_id, user_id)
+                    notices = await self.repository.get_by_course_id(course_id)
             
             logger.info(f"강의 {course_id}의 공지사항 {len(notices)}개 반환")
             return notices
@@ -195,15 +195,15 @@ class NoticeService(BaseService):
                         if upserted_notice:
                             result["new"] += 1
 
-                        # 첨부파일 처리
-                        if auto_download and notice.get("attachments"):
-                            attachment_count = await self._process_attachments(
-                                eclass_session,
-                                notice["attachments"],
-                                upserted_notice.get('id'),
-                                course_id
-                            )
-                            logger.info(f"처리된 첨부파일 수: {attachment_count}")
+                            # 첨부파일 처리
+                            if auto_download and notice.get("attachments"):
+                                attachment_count = await self._process_attachments(
+                                    eclass_session,
+                                    notice["attachments"],
+                                    upserted_notice.get('id'),
+                                    course_id
+                                )
+                                logger.info(f"처리된 첨부파일 수: {attachment_count}")
 
                     except Exception as e:
                         logger.error(f"공지사항 {article_id} 처리 중 오류: {str(e)}")
