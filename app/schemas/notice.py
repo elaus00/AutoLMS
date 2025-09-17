@@ -8,7 +8,6 @@ class NoticeBase(BaseModel):
     id: str  # Composite Primary Key: "{course_id}_{notice_id}"
     course_id: str  # 강의 ID
     notice_id: str  # 공지사항 원본 ID (e-Class에서)
-    user_id: str  # 사용자 ID
     title: str  # 공지사항 제목
     content: Optional[str] = None  # 공지사항 내용
     author: Optional[str] = None  # 작성자
@@ -21,7 +20,6 @@ class NoticeCreate(BaseModel):
     """공지사항 생성 요청 스키마 - ID는 자동 생성"""
     course_id: str
     notice_id: str  # 원본 e-Class ID
-    user_id: str
     title: str
     content: Optional[str] = None
     author: Optional[str] = None
@@ -43,11 +41,9 @@ class NoticeUpdate(BaseModel):
 
 class NoticeInDB(NoticeBase):
     """데이터베이스의 공지사항 스키마"""
-    has_attachments: Optional[bool] = False  # 첨부파일 존재 여부
-    attachments: Optional[List[Any]] = None  # 첨부파일 정보 (JSONB)
     created_at: datetime  # 생성 시간
     updated_at: datetime  # 수정 시간
-    
+
     class Config:
         from_attributes = True
 
@@ -59,8 +55,6 @@ class Notice(NoticeInDB):
 
 class NoticeOut(NoticeBase):
     """공지사항 출력 스키마 (사용자에게 반환)"""
-    has_attachments: Optional[bool] = False
-    attachments: Optional[List[Any]] = None
     created_at: datetime
     updated_at: datetime
 

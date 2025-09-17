@@ -32,14 +32,23 @@ async def get_notices(
             detail="강의를 찾을 수 없습니다."
         )
 
-    notices = await notice_service.get_notices_by_course(course_id, skip=skip, limit=limit)
+    # 데이터베이스에서 공지사항 조회
+    notices = await notice_service.get_notices_by_course(course_id, skip=0, limit=1000)
+
+    # 공지사항이 없으면 새로고침 시도
+    if not notices:
+        result = await notice_service.refresh_all(course_id, current_user["id"])
+        if result["new"] > 0:
+            # 새로고침 후 다시 조회
+            notices = await notice_service.get_notices_by_course(course_id, skip=0, limit=1000)
+
+    # 페이징 적용
     total = len(notices)
+    paginated_notices = notices[skip:skip+limit]
 
     return {
-        "notices": notices,
-        "total": total,
-        "skip": skip,
-        "limit": limit
+        "notices": paginated_notices,
+        "total": total
     }
 
 @router.get("/refresh", response_model=dict)
