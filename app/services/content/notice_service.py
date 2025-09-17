@@ -301,7 +301,9 @@ class NoticeService(BaseService):
                 }
 
                 # 데이터베이스에 저장
-                await self.attachment_repository.upsert(attachment_data)
+                logger.info(f"첨부파일 저장 시도: {attachment_data}")
+                result = await self.attachment_repository.upsert(attachment_data)
+                logger.info(f"첨부파일 저장 결과: {result}")
                 count += 1
                 logger.info(f"첨부파일 메타데이터 저장 완료: {file_name}")
 

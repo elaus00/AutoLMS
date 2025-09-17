@@ -68,8 +68,9 @@ class AttachmentRepository(BaseRepository):
             return None
     
     async def upsert(self, attachment_data: Dict[str, Any]) -> Optional[Dict[str, Any]]:
-        """첨부파일 생성 또는 업데이트 (source_id + source_type + file_name 중복 체크)"""
-        return await super().upsert(["source_id", "source_type", "file_name"], **attachment_data)
+        """첨부파일 생성 또는 업데이트 (course_id + source_id + source_type + file_name 중복 체크)"""
+        logger.info(f"AttachmentRepository upsert 호출: conflict_fields=['course_id', 'source_id', 'source_type', 'file_name'], data={attachment_data}")
+        return await super().upsert(["course_id", "source_id", "source_type", "file_name"], **attachment_data)
     
     async def get_by_source_and_filename(self, source_id: str, source_type: str, file_name: str) -> Optional[Dict[str, Any]]:
         """소스 ID, 타입, 파일명으로 첨부파일 조회"""
